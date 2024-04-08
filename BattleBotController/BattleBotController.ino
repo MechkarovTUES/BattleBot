@@ -77,31 +77,7 @@ void dumpGamepad(ControllerPtr ctl) {
     );
 }
 
-void dumpMouse(ControllerPtr ctl) {
-    Serial.printf("idx=%d, buttons: 0x%04x, scrollWheel=0x%04x, delta X: %4d, delta Y: %4d\n",
-                   ctl->index(),        // Controller Index
-                   ctl->buttons(),      // bitmask of pressed buttons
-                   ctl->scrollWheel(),  // Scroll Wheel
-                   ctl->deltaX(),       // (-511 - 512) left X Axis
-                   ctl->deltaY()        // (-511 - 512) left Y axis
-    );
-}
 
-void dumpKeyboard(ControllerPtr ctl) {
-    // TODO: Print pressed keys
-    Serial.printf("idx=%d\n", ctl->index());
-}
-
-void dumpBalanceBoard(ControllerPtr ctl) {
-    Serial.printf("idx=%d,  TL=%u, TR=%u, BL=%u, BR=%u, temperature=%d\n",
-                   ctl->index(),        // Controller Index
-                   ctl->topLeft(),      // top-left scale
-                   ctl->topRight(),     // top-right scale
-                   ctl->bottomLeft(),   // bottom-left scale
-                   ctl->bottomRight(),  // bottom-right scale
-                   ctl->temperature()   // temperature: used to adjust the scale value's precision
-    );
-}
 
 void processGamepad(ControllerPtr ctl) {
     // There are different ways to query whether a button is pressed.
@@ -162,28 +138,6 @@ void processGamepad(ControllerPtr ctl) {
     motorF2.setSpeed(static_cast<int>((acc/10)*2.4));
     dumpGamepad(ctl); //print values of ps4 to serial monitor
 
-}
-
-void processMouse(ControllerPtr ctl) {
-    // This is just an example.
-    if (ctl->scrollWheel() > 0) {
-        // Do Something
-    } else if (ctl->scrollWheel() < 0) {
-        // Do something else
-    }
-
-    // See "dumpMouse" for possible things to query.
-    dumpMouse(ctl);
-}
-
-void processBalanceBoard(ControllerPtr ctl) {
-    // This is just an example.
-    if (ctl->topLeft() > 10000) {
-        // Do Something
-    }
-
-    // See "dumpBalanceBoard" for possible things to query.
-    dumpBalanceBoard(ctl);
 }
 
 // Arduino setup function. Runs in CPU 1
