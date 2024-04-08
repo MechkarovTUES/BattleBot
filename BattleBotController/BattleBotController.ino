@@ -2,7 +2,18 @@
 #include <CytronMotorDriver.h>
 
 ControllerPtr myControllers[BP32_MAX_GAMEPADS];
-CytronMD motor(PWM_DIR,15, 2);
+CytronMD motorR1(PWM_DIR,15, 2);
+CytronMD motorR2(PWM_DIR,0, 4);
+CytronMD motorF1(PWM_DIR,16, 17);
+CytronMD motorF2(PWM_DIR,5, 18);
+
+//F1§F2 - front motors tо driver 1
+//R1§R2 - rear motors tо driver 2
+//Connect common ground to each driver Mite
+
+int acc = 0;
+const int deadzone = 50;
+const int accSpeed = 30;
 
 // This callback gets called any time a new gamepad is connected.
 // Up to 4 gamepads can be connected at the same time.
@@ -136,14 +147,21 @@ void processGamepad(ControllerPtr ctl) {
         // It is possible to set it by calling:
         ctl->setRumble(0xc0 /* force */, 0xc0 /* duration */);
     }
+    if (acc + accSpeed < ctl->throttle()){
+      acc += accSpeed;
+    }
+    if (acc > ctl-> throttle()){
+      acc -= accSpeed;
+      if (acc < deadzone){acc = 0;}
+    }
+   
+    Serial.println(static_cast<int>((acc/10)*2.4));
+    motorR1.setSpeed(static_cast<int>((acc/10)*2.4));
+    motorR2.setSpeed(static_cast<int>((acc/10)*2.4));
+    motorF1.setSpeed(static_cast<int>((acc/10)*2.4));
+    motorF2.setSpeed(static_cast<int>((acc/10)*2.4));
+    dumpGamepad(ctl); //print values of ps4 to serial monitor
 
-    // Another way to query controller data is by getting the buttons() function.
-    // See how the different "dump*" functions dump the Controller info.
-    Serial.println(static_cast<int>((ctl->throttle()/10)*2.4));
-    motor.setSpeed(static_cast<int>((ctl->throttle()/10)*2.4));
-    dumpGamepad(ctl);
-
-    //dumpGamepad(ctl);
 }
 
 void processMouse(ControllerPtr ctl) {
@@ -156,31 +174,6 @@ void processMouse(ControllerPtr ctl) {
 
     // See "dumpMouse" for possible things to query.
     dumpMouse(ctl);
-}
-
-void processKeyboard(ControllerPtr ctl) {
-    // This is just an example.
-    if (ctl->isKeyPressed(Keyboard_A)) {
-        // Do Something
-        Serial.println("Key 'A' pressed");
-    }
-
-    // Don't do "else" here.
-    // Multiple keys can be pressed at the same time.
-    if (ctl->isKeyPressed(Keyboard_LeftShift)) {
-        // Do something else
-        Serial.println("Key 'LEFT SHIFT' pressed");
-    }
-
-    // Don't do "else" here.
-    // Multiple keys can be pressed at the same time.
-    if (ctl->isKeyPressed(Keyboard_LeftArrow)) {
-        // Do something else
-        Serial.println("Key 'Left Arrow' pressed");
-    }
-
-    // See "dumpKeyboard" for possible things to query.
-    dumpKeyboard(ctl);
 }
 
 void processBalanceBoard(ControllerPtr ctl) {
@@ -199,7 +192,7 @@ void setup() {
     Serial.printf("Firmware: %s\n", BP32.firmwareVersion());
     const uint8_t* addr = BP32.localBdAddress();
     Serial.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-
+    
     // Setup the Bluepad32 callbacks
     BP32.setup(&onConnectedController, &onDisconnectedController);
 
@@ -209,14 +202,16 @@ void setup() {
     // Forgetting Bluetooth keys prevents "paired" gamepads to reconnect.
     // But might also fix some connection / re-connection issues.
     BP32.forgetBluetoothKeys();
-
-    // Enables mouse / touchpad support for gamepads that support them.
     // When enabled controllers like DualSense and DualShock4 generate two connected devices:
     // - First one: the gamepad
     // - Second one, which is a "vritual device", is a mouse
     // By default it is disabled.
     BP32.enableVirtualDevice(false);
 }
+
+
+
+
 
 // Arduino loop function. Runs in CPU 1
 void loop() {
