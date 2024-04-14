@@ -13,7 +13,7 @@ CytronMD motorF2(PWM_DIR,5, 18);
 
 int acc = 0;
 const int deadzone = 50;
-const int accSpeed = 30;
+const int accSpeed = 102;
 
 // This callback gets called any time a new gamepad is connected.
 // Up to 4 gamepads can be connected at the same time.
@@ -25,8 +25,18 @@ void onConnectedController(ControllerPtr ctl) {
             // Additionally, you can get certain gamepad properties like:
             // Model, VID, PID, BTAddr, flags, etc.
             ControllerProperties properties = ctl->getProperties();
-            Serial.printf("Controller model: %s, VID=0x%04x, PID=0x%04x\n", ctl->getModelName().c_str(), properties.vendor_id,
-                           properties.product_id);
+            Serial.printf("Controller model: %s, VID=0x%04x, PID=0x%04x\n BTAddr: %02x:%02x:%02x:%02x:%02x:%02x\n", ctl->getModelName().c_str(), properties.vendor_id, properties.product_id, 
+                           properties.btaddr[0], properties.btaddr[1], properties.btaddr[2], properties.btaddr[3], properties.btaddr[4], properties.btaddr[5]);
+            // Define the desired Bluetooth address
+            uint8_t desiredBtAddr[] = {0xa4, 0xae, 0x12, 0xeb, 0xf9, 0x73};
+            
+            // Compare the Bluetooth address with the desired address
+            if (memcmp(properties.btaddr, desiredBtAddr, 6) == 0) {
+                Serial.println("Desired Bluetooth address matched!");
+            } else {
+                Serial.println("Desired Bluetooth address not matched!");
+            }
+
             myControllers[i] = ctl;
             foundEmptySlot = true;
             break;
@@ -123,20 +133,48 @@ void processGamepad(ControllerPtr ctl) {
         // It is possible to set it by calling:
         ctl->setRumble(0xc0 /* force */, 0xc0 /* duration */);
     }
-    if (acc + accSpeed < ctl->throttle()){
+
+    if ((acc - accSpeed) * -1 <= ctl->brake() && ctl->throttle() == 0){
+      acc -= accSpeed;
+    }
+    else if (acc * -1 > ctl->brake() && ctl->throttle() == 0){
+      acc += accSpeed;
+      if (acc * -1 < deadzone){acc = 0;}
+    }
+
+    else if (acc + accSpeed <= ctl->throttle() && ctl->brake() == 0){
       acc += accSpeed;
     }
-    if (acc > ctl-> throttle()){
+    else if (acc > ctl-> throttle() && ctl->brake() == 0){
       acc -= accSpeed;
       if (acc < deadzone){acc = 0;}
     }
-   
-    Serial.println(static_cast<int>((acc/10)*2.4));
-    motorR1.setSpeed(static_cast<int>((acc/10)*2.4));
-    motorR2.setSpeed(static_cast<int>((acc/10)*2.4));
-    motorF1.setSpeed(static_cast<int>((acc/10)*2.4));
-    motorF2.setSpeed(static_cast<int>((acc/10)*2.4));
-    dumpGamepad(ctl); //print values of ps4 to serial monitor
+    //Serial.println(acc);
+    int speed = map(acc, -1020, 1020, -254, 254);
+    Serial.println(speed);
+    //Serial.println(static_cast<int>((acc/10)*2.4));
+
+    if(ctl->axisX() < 0 - deadzone){
+      motorR1.setSpeed(speed * -1);
+      motorR2.setSpeed(speed);
+      motorF1.setSpeed(speed * -1);
+      motorF2.setSpeed(speed);
+      Serial.println("steer left");
+    }
+    else if(ctl->axisX() > 0 + deadzone){
+      motorR1.setSpeed(speed);
+      motorR2.setSpeed(speed * -1);
+      motorF1.setSpeed(speed);
+      motorF2.setSpeed(speed * -1);
+      Serial.println("steer right");
+    }
+    else{
+      motorR1.setSpeed(speed);
+      motorR2.setSpeed(speed);
+      motorF1.setSpeed(speed);
+      motorF2.setSpeed(speed);
+    }
+    //dumpGamepad(ctl); //print values of ps4 to serial monitor
 
 }
 
