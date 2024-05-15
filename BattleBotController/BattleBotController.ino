@@ -2,18 +2,23 @@
 #include <CytronMotorDriver.h>
 
 ControllerPtr myControllers[BP32_MAX_GAMEPADS];
-CytronMD motorR1(PWM_DIR,15, 2);
-CytronMD motorR2(PWM_DIR,0, 4);
-CytronMD motorF1(PWM_DIR,16, 17);
-CytronMD motorF2(PWM_DIR,5, 18);
+CytronMD motorR(PWM_DIR,15, 2);
+CytronMD motorL(PWM_DIR,0, 4);
+
+
+
+
 
 //F1§F2 - front motors tо driver 1
 //R1§R2 - rear motors tо driver 2
 //Connect common ground to each driver Mite
-
+int on = 0;
 int acc = 0;
 const int deadzone = 50;
-const int accSpeed = 102;
+const int accSpeed = 204;
+
+int interval = 5000;
+time_t prev = 0;
 
 // This callback gets called any time a new gamepad is connected.
 // Up to 4 gamepads can be connected at the same time.
@@ -33,13 +38,14 @@ void onConnectedController(ControllerPtr ctl) {
             // Compare the Bluetooth address with the desired address
             if (memcmp(properties.btaddr, desiredBtAddr, 6) == 0) {
                 Serial.println("Desired Bluetooth address matched!");
+                myControllers[i] = ctl;
+                foundEmptySlot = true;
+                break;
             } else {
                 Serial.println("Desired Bluetooth address not matched!");
             }
 
-            myControllers[i] = ctl;
-            foundEmptySlot = true;
-            break;
+            
         }
     }
     if (!foundEmptySlot) {
@@ -94,35 +100,26 @@ void processGamepad(ControllerPtr ctl) {
     // By query each button individually:
     //  a(), b(), x(), y(), l1(), etc...
     if (ctl->a()) {
-        static int colorIdx = 0;
-        // Some gamepads like DS4 and DualSense support changing the color LED.
-        // It is possible to change it by calling:
-        switch (colorIdx % 3) {
-            case 0:
-                // Red
-                ctl->setColorLED(255, 0, 0);
-                break;
-            case 1:
-                // Green
-                ctl->setColorLED(0, 255, 0);
-                break;
-            case 2:
-                // Blue
-                ctl->setColorLED(0, 0, 255);
-                break;
+      if (millis() - prev >= interval) {
+        prev = millis();
+        if(on == 0){
+          digitalWrite(19, HIGH);
+          on = 1;
         }
-        colorIdx++;
+        else{
+          digitalWrite(19, LOW);
+          on = 0;
+        }
+        Serial.println(on);
+      }
+      else{
+        Serial.println("time has NOT passed");
+      }
+        
     }
 
     if (ctl->b()) {
-        // Turn on the 4 LED. Each bit represents one LED.
-        static int led = 0;
-        led++;
-        // Some gamepads like the DS3, DualSense, Nintendo Wii, Nintendo Switch
-        // support changing the "Player LEDs": those 4 LEDs that usually indicate
-        // the "gamepad seat".
-        // It is possible to change them by calling:
-        ctl->setPlayerLEDs(led & 0x0f);
+        
     }
 
     if (ctl->x()) {
@@ -150,29 +147,24 @@ void processGamepad(ControllerPtr ctl) {
       if (acc < deadzone){acc = 0;}
     }
     //Serial.println(acc);
-    int speed = map(acc, -1020, 1020, -254, 254);
-    Serial.println(speed);
+    int speed = map(acc, -1020, 1020, -220, 220);
+    speed *= -1;
+    //Serial.println(speed);
     //Serial.println(static_cast<int>((acc/10)*2.4));
 
     if(ctl->axisX() < 0 - deadzone){
-      motorR1.setSpeed(speed * -1);
-      motorR2.setSpeed(speed);
-      motorF1.setSpeed(speed * -1);
-      motorF2.setSpeed(speed);
+      motorR.setSpeed(speed * -1);
+      motorL.setSpeed(speed);
       Serial.println("steer left");
     }
     else if(ctl->axisX() > 0 + deadzone){
-      motorR1.setSpeed(speed);
-      motorR2.setSpeed(speed * -1);
-      motorF1.setSpeed(speed);
-      motorF2.setSpeed(speed * -1);
+      motorR.setSpeed(speed);
+      motorL.setSpeed(speed * -1);
       Serial.println("steer right");
     }
     else{
-      motorR1.setSpeed(speed);
-      motorR2.setSpeed(speed);
-      motorF1.setSpeed(speed);
-      motorF2.setSpeed(speed);
+      motorR.setSpeed(speed);
+      motorL.setSpeed(speed);
     }
     //dumpGamepad(ctl); //print values of ps4 to serial monitor
 
@@ -199,6 +191,12 @@ void setup() {
     // - Second one, which is a "vritual device", is a mouse
     // By default it is disabled.
     BP32.enableVirtualDevice(false);
+
+    pinMode(19, OUTPUT);
+    digitalWrite(19, LOW);
+    motorR.setSpeed(0);
+    motorL.setSpeed(0);
+    
 }
 
 
